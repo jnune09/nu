@@ -85,7 +85,6 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     }
                 }
                 
-                
                 //NOTE Initialization
                 texture player_texture;
                 const char* player_texture_fn = "player.png";
@@ -118,8 +117,8 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     RECT client_rect;
                     GetClientRect(window, &client_rect);
                     
-                    u32 window_width  = client_rect.right  - client_rect.left;
-                    u32 window_height = client_rect.bottom - client_rect.top;
+                    nu.window_width  = client_rect.right  - client_rect.left;
+                    nu.window_height = client_rect.bottom - client_rect.top;
                     
                     
                     //NOTE Update
@@ -150,11 +149,11 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                                        sprite_width*(frame+1),
                                        sprite_height*0,
                                        sprite_height*1,
-                                       (window_width /2)-32,
-                                       (window_height/2)-64,
+                                       (nu.window_width /2)-32,
+                                       (nu.window_height/2)-64,
                                        64, 128, WHITE);
                     
-                    nu_render(&nu, window_width, window_height);
+                    nu_render(&nu);
                     
                     SwapBuffers(GetDC(window));
                 }
