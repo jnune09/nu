@@ -129,7 +129,7 @@ typedef union v4i
     struct { i32 left, top, right, bottom; };
     i32 e[4];
     
-};v4i;
+} v4i;
 
 
 internal char *
@@ -667,101 +667,8 @@ void nu_load_texture(nu_context *nu, texture *texture, const char *file_name)
 
 void nu_load_font_from_file_SLOW(nu_context *nu, font *font, u32 font_size, u32 count, const char *file_name)
 {
-    font->base_height = font_size;
-    font->character_count = count;
-    
-    u32 file_size;
-    u8* font_buffer = nu_read_file_SLOW(file_name);
-    
-    stbtt_fontinfo info;
-    if (!stbtt_InitFont(&info, font_buffer, 0))
-    {
-        //TODO(JN): log
-    }
-    
-    u32 b_w = 1024;
-    u32 b_h = 1024;
-    u32 l_h = font_size;
-    
-    /* create a bitmap for the font */
-    u8* monobitmap = (u8 *)NU_MALLOC(b_w * b_h * sizeof(u8));
-    u8* bitmap     = (u8 *)NU_MALLOC(b_w * b_h * sizeof(u8)*4);
-    
-    /* calculate font scaling */
-    f32 scale = stbtt_ScaleForPixelHeight(&info, l_h);
-    
-    font->characters = (character *)NU_MALLOC(sizeof(character)*count);;
-    
-    i32 x = 0;
-    i32 offset_y = 0;
-    
-    i32 ascent, descent, lineGap;
-    stbtt_GetFontVMetrics(&info, &ascent, &descent, &lineGap);
-    
-    ascent  = roundf(ascent * scale);
-    descent = roundf(descent * scale);
-    
-    for (u32 i = 0; i < count; ++i)
-    {
-        
-        //NOTE(JN): Character width.
-        i32 ax;
-        i32 lsb;
-        stbtt_GetCodepointHMetrics(&info, i, &ax, &lsb);
-        
-        /* get bounding box for character (may be offset to account for chars that dip above or below the line */
-        i32 c_x1, c_y1, c_x2, c_y2;
-        stbtt_GetCodepointBitmapBox(&info, i, scale, scale,
-                                    &c_x1, &c_y1, &c_x2, &c_y2);
-        
-        if(x > b_w-(u32)(roundf(ax * scale)))
-        {
-            offset_y += font_size;
-            x = 0;
-        }
-        
-        i32 y = ascent + c_y1 + offset_y;
-        i32 byte_offset = x + roundf(lsb * scale) + (y * b_w);
-        
-        stbtt_MakeCodepointBitmap(&info, monobitmap + byte_offset,
-                                  c_x2 - c_x1, c_y2 - c_y1, b_w, scale, scale, i);
-        
-        font->characters[i].x = x;
-        font->characters[i].y = y;
-        font->characters[i].width = (u32)(roundf(ax * scale));
-        font->characters[i].height = c_y2 - c_y1;
-        font->characters[i].c = i;
-        
-        //NOTE(JN): Advance x
-        x += roundf(ax * scale);
-        
-        //TODO(JN): Add kerning
-        //int kern;
-        //kern = stbtt_GetCodepointKernAdvance(&info, i, i + 1]);
-        //x += roundf(kern * scale);
-    }
-    
-    u8 *source = monobitmap;
-    u8 *dest_row = (u8 *)bitmap;
-    for(u32 y = 0; y < b_h; y++)
-    {
-        u32 *dest = (u32 *)dest_row;
-        for(u32 x = 0; x < b_w; x++)
-        {
-            u8 alpha = *source++;
-            *dest++ = ((alpha << 24)|
-                       (alpha << 16)|
-                       (alpha << 8)|
-                       (alpha << 0));
-        }
-        dest_row += b_w*NU_BYTES_PER_PIXEL;
-    }
-    
-    nu_load_texture_from_memory(nu, &font->texture, b_w, b_h, bitmap);
-    
-    NU_FREE(font_buffer);
-    NU_FREE(monobitmap);
-    NU_FREE(bitmap);
+    u8* font_data = nu_read_file_SLOW(file_name);
+    nu_load_font_from_memory(nu, font, font_size, count, font_data);
 }
 
 
