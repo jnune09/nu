@@ -12,6 +12,12 @@ win32_main_window_callback(HWND window, UINT message, WPARAM w_param, LPARAM l_p
     
     switch(message)
     {
+        case WM_ACTIVATEAPP:
+        {
+            SetLayeredWindowAttributes(window, RGB(0, 0, 0), 255, LWA_ALPHA);
+            
+        } break;
+        
         case WM_CLOSE:
         {
             global_running = false;
@@ -42,25 +48,25 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
     {
         
         WNDCLASSA window_class = {0};
-        HWND window = {0};
         
         window_class.style         = CS_OWNDC|CS_HREDRAW|CS_VREDRAW; 
         window_class.lpfnWndProc   = win32_main_window_callback;
         window_class.hInstance     = instance;
-        window_class.hCursor       = LoadCursor(NULL, IDC_ARROW);;
+        window_class.hCursor       = LoadCursor(NULL, IDC_ARROW);
         window_class.lpszClassName = "nu_window_class";
         
         if (RegisterClassA(&window_class))
         {
             
-            window = CreateWindowExA(0, window_class.lpszClassName,
-                                     "nu_example",
-                                     WS_OVERLAPPEDWINDOW|WS_VISIBLE,
-                                     CW_USEDEFAULT,
-                                     CW_USEDEFAULT,
-                                     512,
-                                     512,
-                                     0, 0, instance, 0);
+            HWND window = CreateWindowExA(WS_EX_LAYERED,
+                                          window_class.lpszClassName,
+                                          "nu_example",
+                                          WS_OVERLAPPEDWINDOW|WS_VISIBLE,
+                                          CW_USEDEFAULT,
+                                          CW_USEDEFAULT,
+                                          CW_USEDEFAULT,
+                                          CW_USEDEFAULT,
+                                          0, 0, instance, 0);
             if (window)
             {
                 HDC device_context = GetDC(window);
@@ -117,8 +123,8 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     RECT client_rect;
                     GetClientRect(window, &client_rect);
                     
-                    nu.window_width  = client_rect.right  - client_rect.left;
-                    nu.window_height = client_rect.bottom - client_rect.top;
+                    nu.gl.viewport_width  = client_rect.right  - client_rect.left;
+                    nu.gl.viewport_height = client_rect.bottom - client_rect.top;
                     
                     
                     //NOTE Update
@@ -149,9 +155,9 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                                        sprite_width*(frame+1),
                                        sprite_height*0,
                                        sprite_height*1,
-                                       (nu.window_width /2)-32,
-                                       (nu.window_height/2)-64,
-                                       64, 128, WHITE);
+                                       (nu.gl.viewport_width /2)-64,
+                                       (nu.gl.viewport_height/2)-128,
+                                       128, 256, WHITE);
                     
                     nu_render(&nu);
                     

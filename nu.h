@@ -87,7 +87,7 @@ TODO
 #define GIGABYTES(value) (MEGABYTES(value)*1024LL)
 #define TERABYTES(value) (GIGABYTES(value)*1024LL)
 
-#define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
+#define array_count(array) (sizeof(array) / sizeof((array)[0]))
 
 #define foreach(item, array) \
 for(int keep=1, index=0, size=sizeof(array)/sizeof((array)[0]); \
@@ -97,9 +97,9 @@ for(item = (array)+index; keep; keep = !keep)
 
 
 #if DEBUG
-#define NU_ASSERT(expression) if(!(expression)) {*(int *)0 = 0;}
+#define nu_assert(expression) if(!(expression)) {*(int *)0 = 0;}
 #else
-#define NU_ASSERT(expression)
+#define nu_assert(expression)
 #endif
 
 typedef int8_t   i8;
@@ -312,12 +312,24 @@ typedef struct platform_api
     
 } platform_api;
 
+typedef struct nu_camera
+{
+    union
+    {
+        v2 position;
+        struct { f32 x , y; };
+    };
+    
+    f32 zoom;
+    
+} nu_camera;
+
+
 typedef struct nu_context
 {
-    u32 window_width;
-    u32 window_height;
     gl_context gl;
     vertex_buffer vb;
+    nu_camera camera;
     platform_api platform;
     
 } nu_context;
@@ -583,6 +595,8 @@ nu_init(nu_context *nu)
     nu->vb.size = sizeof(vertex)*MAX_VERT_COUNT;
     nu->vb.memory = NU_MALLOC(nu->vb.size);
     
+    //TODO(JN): Do I want to do this or check in render?
+    nu->camera.zoom = 1.0f;
 }
 
 inline void
@@ -829,24 +843,43 @@ nu_draw_text(nu_context *nu, font *font, u32 space, f32 x, f32 y, color color, c
 void
 nu_render(nu_context *nu)
 {
-    glViewport(0, 0, nu->window_width, nu->window_height);
+    glViewport(0, 0, nu->gl.viewport_width, nu->gl.viewport_height);
     
     glBindBuffer(GL_ARRAY_BUFFER, nu->gl.vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, nu->vb.size, (vertex *)nu->vb.memory);
     
     glUseProgram(nu->gl.shader);
     
+    //NOTE(JN): Model
     m4 model = {0};
+    
     gb_mat4_identity(&model);
     glUniformMatrix4fv(glGetUniformLocation(nu->gl.shader, "model"),
                        1, GL_FALSE, model.e);
+    
+    //NOTE(JN): View
     m4 view = {0};
-    gb_mat4_identity(&view);
+    
+    m4 position = {0};
+    v3 translation = {nu->camera.x, nu->camera.y, 0.0f};
+    gb_mat4_translate(&position, translation);
+    
+    m4 zoom = {0};
+    v3 scale = {nu->camera.zoom, nu->camera.zoom, nu->camera.zoom};
+    gb_mat4_scale(&zoom, scale);
+    
+    gb_mat4_mul(&view, &position, &zoom);
+    
     glUniformMatrix4fv(glGetUniformLocation(nu->gl.shader, "view"),
                        1, GL_FALSE, view.e);
     
+    //NOTE(JN): Projection
     m4 projection = {0};
-    gb_mat4_ortho2d(&projection, 0, (f32)nu->window_width, (f32)nu->window_height, 0);
+    
+    gb_mat4_ortho2d(&projection, 0,
+                    (f32)nu->gl.viewport_width,
+                    (f32)nu->gl.viewport_height, 0);
+    
     glUniformMatrix4fv(glGetUniformLocation(nu->gl.shader, "projection"),
                        1, GL_FALSE, projection.e);
     
