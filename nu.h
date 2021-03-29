@@ -17,17 +17,13 @@ by Jonathan Nunez
 TODO
 
 [] #define implementation
-[] improve set/view_fps
-[] improve batch renderer
+[-] improve batch renderer
 [] improve font loading
-[] remove comments
-
 [] logging
 [] input
 [] collision
-*/
 
-#include <stdint.h>
+*/
 
 #define GLBIND_IMPLEMENTATION
 #include "include/glbind.h"
@@ -102,6 +98,7 @@ for(item = (array)+index; keep; keep = !keep)
 #define nu_assert(expression)
 #endif
 
+#include <stdint.h>
 typedef int8_t   i8;
 typedef int16_t  i16;
 typedef int32_t  i32;
@@ -123,6 +120,14 @@ typedef gbVec4   v4;
 
 typedef gbMat4   m4;
 
+typedef union v2i
+{
+    struct { i32 x, y; };
+    struct { i32 row, column; };
+    i32 e[2];
+    
+} v2i;
+
 typedef union v4i
 {
     struct { i32 x, y, z, w; };
@@ -131,51 +136,6 @@ typedef union v4i
     
 } v4i;
 
-
-internal char *
-nu_read_file_SLOW(const char *file_name)
-{
-    char *result = 0;
-    
-    FILE *file = fopen(file_name, "r");
-    
-    if(file)
-    {
-        fseek(file, 0, SEEK_END);
-        size_t file_size = ftell(file);
-        fseek(file, 0, SEEK_SET);
-        
-        result = (char *)NU_MALLOC(file_size);
-        fread(result, file_size, 1, file);
-        fclose(file);
-    }
-    
-    return result;
-}
-
-//NOTE(JN): Reads the entire file and null terminates.
-internal char *
-nu_read_file_null_term_SLOW(const char *file_name)
-{
-    char *result = 0;
-    
-    FILE *file = fopen(file_name, "r");
-    
-    if(file)
-    {
-        fseek(file, 0, SEEK_END);
-        size_t file_size = ftell(file);
-        fseek(file, 0, SEEK_SET);
-        
-        result = (char *)NU_MALLOC(file_size + 1);
-        fread(result, file_size, 1, file);
-        result[file_size] = 0;
-        
-        fclose(file);
-    }
-    
-    return result;
-}
 
 void
 concat_strings(size_t a_count,   char *a,
@@ -263,25 +223,25 @@ typedef struct color
 typedef struct texture
 {
     u32 id;
-    u32 width;
-    u32 height;
+    i32 width;
+    i32 height;
     
 } texture;
 
 typedef struct character
 {
-    u32 x;
-    u8  y;
-    u8  width;
-    u8  height;
-    u8  c;
+    i32 x;
+    i32 y;
+    i32 width;
+    i32 height;
+    i32 c;
     
 } character;
 
 typedef struct font
 {
-    u32 base_height;
-    u32 character_count;
+    i32 base_height;
+    i32 character_count;
     texture texture;
     character *characters;
     
@@ -336,7 +296,6 @@ typedef struct nu_context
 
 
 //NOTE FUNCTIONS
-
 NU_DEF void nu_init(nu_context *nu);
 
 NU_DEF void nu_assign_read_file_pointer(nu_context *nu, platform_read_file *p);
@@ -346,13 +305,10 @@ NU_DEF void nu_assign_free_file_pointer(nu_context *nu, platform_free_file *p);
 NU_DEF void nu_load_texture(nu_context *nu, texture *texture, const char *file_name);
 
 NU_DEF void nu_load_texture_from_memory(nu_context *nu, texture *texture,
-                                        u32 width, u32 height, u8 *data);
+                                        i32 width, i32 height, u8 *data);
 
-NU_DEF void nu_load_font_from_file_SLOW(nu_context *nu, font *font, u32 font_size,
-                                        u32 count, const char *file_name);
-
-NU_DEF void nu_load_font_from_memory(nu_context *nu, font *font, u32 font_size,
-                                     u32 count, u8 *font_data);
+NU_DEF void nu_load_font_from_memory(nu_context *nu, font *font, i32 font_size,
+                                     i32 count, u8 *font_data);
 
 NU_DEF void nu_draw_rect(nu_context *nu, f32 x, f32 y, f32 width, f32 height, color color);
 
@@ -360,11 +316,11 @@ NU_DEF void nu_draw_texture(nu_context *nu, texture texture,
                             f32 x, f32 y, f32 width, f32 height, color color);
 
 NU_DEF void nu_draw_texture_ex(nu_context *nu, texture texture,
-                               u32 coord_left, u32 coord_right,
-                               u32 coord_top,  u32 coord_bottom, 
+                               i32 coord_left, i32 coord_right,
+                               i32 coord_top,  i32 coord_bottom, 
                                f32 x, f32 y, f32 width, f32 height, color color);
 
-NU_DEF void nu_draw_text(nu_context *nu, font *font, u32 space,
+NU_DEF void nu_draw_text(nu_context *nu, font *font, i32 space,
                          f32 x, f32 y, color color, const char *text);
 
 NU_DEF void nu_render(nu_context *nu);
@@ -373,7 +329,7 @@ NU_DEF void nu_uninit(nu_context *nu);
 
 NU_DEF const char *nu_text_format(const char *text, ...);
 
-NU_DEF void nu_screen_shot(u32 width, u32 height);
+NU_DEF void nu_screen_shot(i32 width, i32 height);
 //NU_DEF void nu_gif();
 
 
@@ -391,7 +347,7 @@ nu__compile_shader(u32 type, const char *source)
     glGetShaderiv(id, GL_COMPILE_STATUS, &status);
     if(status == GL_FALSE)
     {
-        u8 buffer[512];
+        GLchar buffer[512];
         glGetShaderInfoLog(id, 512, NULL, buffer);
         printf(buffer);
         glDeleteShader(id);
@@ -416,8 +372,8 @@ nu__create_shader(nu_context *nu, const char *vertex_shader, const char *frag_sh
     glLinkProgram(nu->gl.shader);
     
     //TODO(JN): log
-    u32 success;
-    u8 log[512];
+    GLint success;
+    GLchar log[512];
     glGetProgramiv(nu->gl.shader, GL_LINK_STATUS, &success);
     if(!success)
     {
@@ -460,7 +416,8 @@ nu_clear(nu_context *nu, color color)
 }
 
 inline internal void
-nu__put_vertex(vertex *v, f32 x, f32 y, f32 red, f32 green, f32 blue, f32 alpha,
+nu__put_vertex(vertex *v, f32 x, f32 y,
+               f32 red, f32 green, f32 blue, f32 alpha,
                u32 texture_id, f32 coord_x, f32 coord_y)
 {
     v->position.x = x;
@@ -587,7 +544,7 @@ nu_init(nu_context *nu)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    u32 samples[MAX_TEXTURE_COUNT];
+    GLint samples[MAX_TEXTURE_COUNT];
     for(u32 i = 0; i < MAX_TEXTURE_COUNT; i++) { samples[i] = i; }
     
     glUniform1iv(glGetUniformLocation(nu->gl.shader, "u_textures"), MAX_TEXTURE_COUNT, samples);
@@ -619,7 +576,7 @@ nu_assign_free_file_pointer(nu_context *nu, platform_free_file *p)
 
 void
 nu_load_texture_from_memory(nu_context *nu, texture *texture,
-                            u32 width, u32 height, u8 *data)
+                            i32 width, i32 height, u8 *data)
 {
     texture->width  = width;
     texture->height = height;
@@ -652,7 +609,7 @@ void nu_load_texture(nu_context *nu, texture *texture, const char *file_name)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     
-    u32 nr;
+    i32 nr;
     //stbi_set_flip_vertically_on_load(true);
     
     u8 *image = stbi_load(file_name,
@@ -679,14 +636,7 @@ void nu_load_texture(nu_context *nu, texture *texture, const char *file_name)
     glBindTextureUnit(texture->id, texture->id);
 }
 
-void nu_load_font_from_file_SLOW(nu_context *nu, font *font, u32 font_size, u32 count, const char *file_name)
-{
-    u8* font_data = nu_read_file_SLOW(file_name);
-    nu_load_font_from_memory(nu, font, font_size, count, font_data);
-}
-
-
-void nu_load_font_from_memory(nu_context *nu, font *font, u32 font_size, u32 count, u8 *font_data)
+void nu_load_font_from_memory(nu_context *nu, font *font, i32 font_size, i32 count, u8 *font_data)
 {
     font->base_height = font_size;
     font->character_count = count;
@@ -697,29 +647,29 @@ void nu_load_font_from_memory(nu_context *nu, font *font, u32 font_size, u32 cou
         //TODO(JN): log
     }
     
-    u32 b_w = 1024;
-    u32 b_h = 1024;
-    u32 l_h = font_size;
+    i32 b_w = 1024;
+    i32 b_h = 1024;
+    i32 l_h = font_size;
     
     /* create a bitmap for the font */
     u8* monobitmap = (u8 *)NU_MALLOC(b_w * b_h * sizeof(u8));
     u8* bitmap     = (u8 *)NU_MALLOC(b_w * b_h * sizeof(u8)*4);
     
     /* calculate font scaling */
-    f32 scale = stbtt_ScaleForPixelHeight(&info, l_h);
+    f32 scale = stbtt_ScaleForPixelHeight(&info, (f32)l_h);
     
     font->characters = (character *)NU_MALLOC(sizeof(character)*count);;
     
     i32 x = 0;
     i32 offset_y = 0;
     
-    i32 ascent, descent, lineGap;
-    stbtt_GetFontVMetrics(&info, &ascent, &descent, &lineGap);
+    i32 ascent, descent, line_gap;
+    stbtt_GetFontVMetrics(&info, &ascent, &descent, &line_gap);
     
-    ascent  = roundf(ascent * scale);
-    descent = roundf(descent * scale);
+    ascent  = (i32)roundf(ascent * scale);
+    descent = (i32)roundf(descent * scale);
     
-    for (u32 i = 0; i < count; ++i)
+    for (i32 i = 0; i < count; ++i)
     {
         
         //NOTE(JN): Character width.
@@ -732,46 +682,48 @@ void nu_load_font_from_memory(nu_context *nu, font *font, u32 font_size, u32 cou
         stbtt_GetCodepointBitmapBox(&info, i, scale, scale,
                                     &c_x1, &c_y1, &c_x2, &c_y2);
         
-        if(x > b_w-(u32)(roundf(ax * scale)))
+        if(x > b_w-(i32)(roundf(ax * scale)))
         {
             offset_y += font_size;
             x = 0;
         }
         
         i32 y = ascent + c_y1 + offset_y;
-        i32 byte_offset = x + roundf(lsb * scale) + (y * b_w);
+        i32 byte_offset = x + (i32)roundf(lsb * scale) + (y * b_w);
         
         stbtt_MakeCodepointBitmap(&info, monobitmap + byte_offset,
                                   c_x2 - c_x1, c_y2 - c_y1, b_w, scale, scale, i);
         
         font->characters[i].x = x;
         font->characters[i].y = y;
-        font->characters[i].width = (u32)(roundf(ax * scale));
+        font->characters[i].width = (i32)(roundf(ax * scale));
         font->characters[i].height = c_y2 - c_y1;
         font->characters[i].c = i;
         
         //NOTE(JN): Advance x
-        x += roundf(ax * scale);
+        x += (i32)roundf(ax * scale);
         
         //TODO(JN): Add kerning
-        //int kern;
+        //i32 kern;
         //kern = stbtt_GetCodepointKernAdvance(&info, i, i + 1]);
         //x += roundf(kern * scale);
     }
     
     u8 *source = monobitmap;
     u8 *dest_row = (u8 *)bitmap;
-    for(u32 y = 0; y < b_h; y++)
+    for(i32 y = 0; y < b_h; y++)
     {
         u32 *dest = (u32 *)dest_row;
-        for(u32 x = 0; x < b_w; x++)
+        
+        for(i32 x = 0; x < b_w; x++)
         {
             u8 alpha = *source++;
             *dest++ = ((alpha << 24)|
                        (alpha << 16)|
-                       (alpha << 8)|
+                       (alpha << 8) |
                        (alpha << 0));
         }
+        
         dest_row += b_w*NU_BYTES_PER_PIXEL;
     }
     
@@ -798,8 +750,8 @@ nu_draw_texture(nu_context *nu, texture texture,
 
 void
 nu_draw_texture_ex(nu_context *nu, texture texture, 
-                   u32 coord_left, u32 coord_right, 
-                   u32 coord_top,  u32 coord_bottom,  
+                   i32 coord_left, i32 coord_right, 
+                   i32 coord_top,  i32 coord_bottom,  
                    f32 x, f32 y, f32 width, f32 height, color color)
 {
     f32 left   = (f32)coord_left   /texture.width;
@@ -812,15 +764,16 @@ nu_draw_texture_ex(nu_context *nu, texture texture,
 }
 
 void
-nu_draw_text(nu_context *nu, font *font, u32 space, f32 x, f32 y, color color, const char *text)
+nu_draw_text(nu_context *nu, font *font, i32 space,
+             f32 x, f32 y, color text_color, const char *text)
 {
-    character c;
+    character c = {0};
     f32 current_x = x;
     
-    u32 text_count = string_count(text);
-    for(u32 i = 0; i < text_count; i++)
+    i32 text_count = string_count(text);
+    for(i32 i = 0; i < text_count; i++)
     {
-        for(u32 j = 0; j < font->character_count; j++)
+        for(i32 j = 0; j < font->character_count; j++)
         {
             if(font->characters[j].c == text[i])
             {
@@ -832,12 +785,13 @@ nu_draw_text(nu_context *nu, font *font, u32 space, f32 x, f32 y, color color, c
         {
             nu_draw_texture_ex(nu, font->texture,
                                (c.x), (c.x+c.width), (c.y), (c.y+c.height),
-                               current_x, y+(c.y%font->base_height), c.width, c.height, color);
+                               current_x,
+                               y+(c.y%font->base_height),
+                               (f32)c.width,(f32)c.height, text_color);
             
             current_x += c.width+space;
         }
     }
-    
 }
 
 void
@@ -859,13 +813,13 @@ nu_render(nu_context *nu)
     
     //NOTE(JN): View
     m4 view = {0};
-    
     m4 position = {0};
-    v3 translation = {nu->camera.x, nu->camera.y, 0.0f};
+    
+    v3 translation = gb_vec3(nu->camera.x, nu->camera.y, 0.0f);
     gb_mat4_translate(&position, translation);
     
     m4 zoom = {0};
-    v3 scale = {nu->camera.zoom, nu->camera.zoom, nu->camera.zoom};
+    v3 scale = gb_vec3(nu->camera.zoom, nu->camera.zoom, nu->camera.zoom);
     gb_mat4_scale(&zoom, scale);
     
     gb_mat4_mul(&view, &position, &zoom);
@@ -903,7 +857,7 @@ const char *
 nu_text_format(const char *text, ...)
 {
     local_persist char buffers[MAX_TEXTFORMAT_BUFFERS][MAX_TEXT_BUFFER_LENGTH] = { 0 };
-    local_persist u32  index = 0;
+    local_persist u32 index = 0;
     
     char *current_buffer = buffers[index];
     memset(current_buffer, 0, MAX_TEXT_BUFFER_LENGTH);
@@ -922,7 +876,7 @@ nu_text_format(const char *text, ...)
     return current_buffer;
 }
 
-void nu_screen_shot(u32 width, u32 height)
+void nu_screen_shot(i32 width, i32 height)
 {
     void *data = NU_MALLOC(width*height*NU_BYTES_PER_PIXEL);
     
